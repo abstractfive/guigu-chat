@@ -11,6 +11,7 @@ import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.netty.util.concurrent.GlobalEventExecutor;
 import org.springframework.util.StringUtils;
 
+import java.net.InetSocketAddress;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -27,8 +28,10 @@ public class GuiguChatHandler extends SimpleChannelInboundHandler<TextWebSocketF
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, TextWebSocketFrame msg) throws Exception {
         try {
+            InetSocketAddress insocket = (InetSocketAddress) ctx.channel().remoteAddress();
+            String clientIP = insocket.getAddress().getHostAddress();
             String content = msg.text();
-            System.out.println("接受到数据：" + content);
+            System.out.println("接受到数据：" + content+" ip:"+clientIP);
             JSONObject jsonObject= JSON.parseObject(content);
             String flag=jsonObject.getString("flag");
             String body=jsonObject.getString("body");
