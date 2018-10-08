@@ -12,9 +12,7 @@ import io.netty.util.concurrent.GlobalEventExecutor;
 import org.springframework.util.StringUtils;
 
 import java.net.InetSocketAddress;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * 龟谷聊天消息handler
@@ -25,6 +23,10 @@ public class GuiguChatHandler extends SimpleChannelInboundHandler<TextWebSocketF
     //记录用户
     private static ChannelGroup user=new DefaultChannelGroup(GlobalEventExecutor.INSTANCE);
     private static Map<String,String> userNmaes=new HashMap<>();
+    //历史记录存
+    private static List<ResultMsg> historyList=new ArrayList<>();
+    //历史记录条数
+    private static final int historySize=200;
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, TextWebSocketFrame msg) throws Exception {
         try {
@@ -46,6 +48,7 @@ public class GuiguChatHandler extends SimpleChannelInboundHandler<TextWebSocketF
                     }
                     //发送id给前端
                     ctx.channel().writeAndFlush(new TextWebSocketFrame(ResultMsg.toJsonString(id,ResultMsg.ResultCodeType.REG.getValue())));
+                    ctx.channel().writeAndFlush(new TextWebSocketFrame(ResultMsg.toJsonString(historyList,ResultMsg.ResultCodeType.HISTORY.getValue())));
                     break;
                 case "chat":
                     if(body.indexOf("<")!=-1){
@@ -55,12 +58,15 @@ public class GuiguChatHandler extends SimpleChannelInboundHandler<TextWebSocketF
                                         id,
                                         userNmaes.get(id))));
                     }else {
-                        //聊天
-                        user.writeAndFlush(new TextWebSocketFrame(
-                                ResultMsg.toJsonString(body,
-                                        ResultMsg.ResultCodeType.CHAT.getValue(),
-                                        id,
-                                        userNmaes.get(id))));
+                        //聊天对象
+                        ResultMsg chatMsg= new ResultMsg(body,
+                                ResultMsg.ResultCodeType.CHAT.getValue(),
+                                id,
+                                userNmaes.get(id));
+                        //历史记录
+                        addHistoryList(chatMsg);
+                        //发生聊天消息给所有人
+                        user.writeAndFlush(new TextWebSocketFrame(ResultMsg.toJsonString(chatMsg)));
                     }
                     break;
             }
@@ -77,6 +83,7 @@ public class GuiguChatHandler extends SimpleChannelInboundHandler<TextWebSocketF
         Channel incoming = ctx.channel();
         for (Channel channel : user) {
             channel.writeAndFlush(new TextWebSocketFrame(ResultMsg.toJsonString("嚯嚯嚯 龟谷人+1",ResultMsg.ResultCodeType.HUO.getValue())));
+
         }
     }
 
@@ -95,5 +102,27 @@ public class GuiguChatHandler extends SimpleChannelInboundHandler<TextWebSocketF
             }
         }
         return false;
+    }
+
+    public static List<ResultMsg> getHistoryList() {
+        return historyList;
+    }
+
+    public static void setHistoryList(List<ResultMsg> historyList) {
+        GuiguChatHandler.historyList = historyList;
+    }
+
+    public static int getHistorySize() {
+        return historySize;
+    }
+
+    /**
+     * 存历史记录
+     */
+    public static void addHistoryList(ResultMsg resultMsg){
+        historyList.add(resultMsg);
+        if(historyList.size()>historySize){
+            historyList.remove(historyList.size()-1);
+        }
     }
 }
